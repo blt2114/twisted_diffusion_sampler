@@ -1,0 +1,4 @@
+name: "tds"
+num_particles: 4
+resample_strategy: "systematic"
+ess_threshold: null # 0 means no resampling and null means always resampling 

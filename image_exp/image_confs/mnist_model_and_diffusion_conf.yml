@@ -1,0 +1,16 @@
+clip_denoised: false
+clip_twisted: true 
+diffusion_steps: 1000
+learn_sigma: true
+noise_schedule: linear
+num_channels: 64
+num_res_blocks: 3
+attention_resolutions: "28,14,7"
+resblock_updown: True 
+dropout: 0 
+use_checkpoint: false
+use_new_attention_order: false
+image_size: 28 
+model_path: ./models/model060000.pt
+rgb: false 
+timestep_respacing: '100' # number of timesteps in sampling  

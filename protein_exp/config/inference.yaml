@@ -1,0 +1,93 @@
+# Configuration for inference on SE(3) diffusion experiments.
+defaults:
+  - base
+
+inference:
+  name: tds_run
+  gpu_id: 0  # CUDA GPU to use
+  seed: 123
+
+  # Directory of software, weights, and outputs.
+  pt_hub_dir: ./.cache/torch/
+  pmpnn_dir: ./ProteinMPNN/
+  output_dir: ./inference_outputs/
+
+  # Path to model weights.
+  weights_path: ./weights/paper_weights.pth
+
+  # Whether to save trajectory files
+  aux_traj: False
+
+  # folding method
+  folding_method: esmf
+
+  diffusion:
+    # Number of steps.
+    num_t: 200
+    # Analogous to sampling temperature.
+    noise_scale: 0.5
+    # Final t.
+    min_t: 0.01
+
+  samples:
+    # Number of backbone samples per sequence length.
+    samples_per_length: 5
+    # Number of AF2 or ESMFdold samples per backbone sample.
+    seq_per_sample: 8
+    # Minimum sequence length to sample.
+    min_length: 100
+    # Maximum sequence length to sample.
+    max_length: 500
+    # gap between lengths to sample. i.e. this script will sample all lengths
+    # in range(min_length, max_length, length_step)
+    length_step: 5
+  
+  particle_filtering:
+    # Number of particles
+    number_of_particles: 8
+
+    # Resampling threshold, 
+    resample_threshold: 0.5
+
+    insert_motif_at_t0: False
+
+  motif_scaffolding:
+    # Batch size and number of samples
+    number_of_samples: 1
+    batch_size: 1
+
+    # Number of offsets to sample (if motif contig not specified)
+    max_offsets: 1000
+
+    # Number of rotations to sample for approximate rotational invariance
+    num_rots: 100
+    
+    # Override, exclude self-conditioning
+    no_self_conditioning: False
+
+    # Replacement method options
+    use_replacement: False
+
+    # Otherwise sample randomly (without permuting order) -- used only with relacement method
+    use_contig_for_placement: False 
+
+    # Whether to use twisting gradient in update
+    use_twisting: True
+
+    # log twisting scaling factor
+    twist_scale: 1.0
+
+    # Specify motif scaffolding test case
+    test_name: null
+
+    # Specify whether to apply twisting potentials and updates to rotations and translations
+    twist_potential_rot: True
+    twist_potential_trans: True
+    twist_update_rot: True
+    twist_update_trans: True
+
+    # Path to description of inpainting cases
+    inpaint_cases_csv: ./motif_scaffolding/benchmark.csv
+
+    # Keep motif sequence outside redesign region
+    keep_motif_seq: False

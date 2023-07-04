@@ -1,0 +1,7 @@
+name: "inpainting"
+operator: "inpainting"
+mask: half # choose between 'half' and 'quarter'
+dataset_path: datasets/mnist_test
+image_size: 28 
+rgb: false 
+classifier_path: ./models/resnet.pth.tar # for eval purpose 
