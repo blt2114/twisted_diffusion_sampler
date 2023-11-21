@@ -38,6 +38,7 @@ diffuser:
     max_sigma: 1.5
     schedule: logarithmic
     cache_dir: .cache/
+    exp_rate: 1.0
 
 model:
   node_embed_size: 256

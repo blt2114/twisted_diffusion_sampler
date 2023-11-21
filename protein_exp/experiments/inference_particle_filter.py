@@ -276,7 +276,6 @@ def run(conf: DictConfig) -> None:
 
     # Read model checkpoint.
     print('Starting inference')
-    start_time = time.time()
     sampler = inference_motif_scaffolding.Sampler(conf)
     torch.set_default_tensor_type('torch.FloatTensor')
     output_dir_stem = sampler._output_dir
