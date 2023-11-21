@@ -130,7 +130,7 @@ class SO3Diffuser:
 
         # Convert to pytorch tensors
         g_t = self.diffusion_coef(t)
-        perturb_mean = ( g_t ** 2 ) * dt * score_t
+        perturb_mean = 10 * ( g_t ** 2 ) * dt * score_t
         perturb = perturb_mean + noise_scale * g_t * np.sqrt(dt) * so3_utils.tangent_gaussian(R_t)
         if mask is not None: perturb *= mask[..., None, None]
         R_t_1 = so3_utils.expmap(R_t, perturb)
@@ -169,7 +169,7 @@ class SO3Diffuser:
 
         # Convert to pytorch tensors
         g_t = self.diffusion_coef(t)
-        perturb_mean = ( g_t ** 2 ) * dt * score_t
+        perturb_mean = 10 * ( g_t ** 2 ) * dt * score_t
         perturb = so3_utils.logmap(R_t, R_tm1)
         log_p_sample = -0.5 * torch.sum(
             (perturb - perturb_mean) **2 / (g_t * np.sqrt(dt))**2 / 2 +  # we need the extra factor of 2 because of multiplicity in skew-symmetric matrix in the tangent space
