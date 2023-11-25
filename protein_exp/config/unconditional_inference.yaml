@@ -4,7 +4,7 @@ defaults:
 
 diffuser:
   so3:
-    exp_rate: 10  # TODO: set this in py files
+    exp_rate: 10
 
 inference:
   name: null
@@ -14,15 +14,15 @@ inference:
   # Directory of software, weights, and outputs.
   pt_hub_dir: ./.cache/torch/
   pmpnn_dir: ./ProteinMPNN/
-  output_dir: ./unconditional_inference_outputs/use_sde${inference.samples.use_sde}-exp_rate${diffuser.so3.exp_rate}/
+  output_dir: ./unconditional_inference_outputs/use_sde${inference.samples.use_sde}-exp_rate${diffuser.so3.exp_rate}-num_t${inference.diffusion.num_t}-noise_scale${inference.diffusion.noise_scale}/
 
   # Path to model weights.
   weights_path: ./weights/best_weights.pth
 
   diffusion:
     # Number of steps.
-    num_t: 500
-    # Analogous to sampling temperature.
+    num_t: 100
+    # Analogous to sampling temperature. Used in sde sampling
     noise_scale: 0.1
     # Final t.
     min_t: 0.01
@@ -33,12 +33,12 @@ inference:
     # Number of ESMFdold samples per backbone sample.
     seq_per_sample: 8
     # Minimum sequence length to sample.
-    min_length: 100
+    min_length: 60
     # Maximum sequence length to sample.
-    max_length: 500
+    max_length: 128
     # gap between lengths to sample. i.e. this script will sample all lengths
     # in range(min_length, max_length, length_step)
-    length_step: 5
+    length_step: 1
     
     # use sde or ode to sample
-    use_sde: False  # TODO: check this
+    use_sde: False
