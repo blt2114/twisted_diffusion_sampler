@@ -2,10 +2,9 @@
 defaults:
   - base
 
-
-# TODO: add exp_rate
-# TODO: add use_sde
-
+diffuser:
+  so3:
+    exp_rate: 10  # TODO: set this in py files
 
 inference:
   name: null
@@ -15,7 +14,7 @@ inference:
   # Directory of software, weights, and outputs.
   pt_hub_dir: ./.cache/torch/
   pmpnn_dir: ./ProteinMPNN/
-  output_dir: ./unconditional_inference_outputs/
+  output_dir: ./unconditional_inference_outputs/use_sde${inference.samples.use_sde}-exp_rate${diffuser.so3.exp_rate}/
 
   # Path to model weights.
   weights_path: ./weights/best_weights.pth
@@ -40,3 +39,6 @@ inference:
     # gap between lengths to sample. i.e. this script will sample all lengths
     # in range(min_length, max_length, length_step)
     length_step: 5
+    
+    # use sde or ode to sample
+    use_sde: False  # TODO: check this

@@ -644,8 +644,8 @@ class Experiment:
             min_t=None,
             center=True,
             aux_traj=False,
-            self_condition=True,
             noise_scale=1.0,
+            use_sde=True,
         ):
         """Inference function.
 
@@ -702,6 +702,7 @@ class Experiment:
                         dt=dt,
                         center=center,
                         noise_scale=noise_scale,
+                        use_sde=use_sde
                     )
                 else:
                     model_out = self.model(sample_feats)
