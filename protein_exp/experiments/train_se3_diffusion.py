@@ -646,9 +646,6 @@ class Experiment:
             aux_traj=False,
             self_condition=True,
             noise_scale=1.0,
-            F=None,
-            include_phi_grad_rot=True,
-            include_phi_rot=True,
         ):
         """Inference function.
 
@@ -680,78 +677,72 @@ class Experiment:
             all_bb_prots_uncond = []
             all_trans_0_pred_uncond = []
             all_bb_0_pred_uncond = []
+        
+        with torch.no_grad():
+            for t in reverse_steps:
+                if t > min_t:
+                    sample_feats = self._set_t_feats(sample_feats, t, t_placeholder)
+                    model_out = self.model(
+                        sample_feats
+                    )
+                    rot_score = model_out['rot_score']
+                    trans_score = model_out['trans_score']
+                    rigid_pred = model_out['rigids']
 
-        prev_t = 1.
-        for t in reverse_steps:
-            if (prev_t -t)*10 >1.:
-                prev_t = t
-                print("t= ", t)
-            if t > min_t:
-                sample_feats = self._set_t_feats(sample_feats, t, t_placeholder)
-                model_out = self.model(
-                    sample_feats, F=F,
-                    include_phi_grad_rot=include_phi_grad_rot,
-                    include_phi_rot=include_phi_rot,
-                )
-                rot_score = model_out['rot_score']
-                trans_score = model_out['trans_score']
-                rigid_pred = model_out['rigids']
-                #if self._model_conf.embed.embed_self_conditioning:
-                if False:
-                    sample_feats['sc_ca_t'] = rigid_pred[..., 4:]
-                    print("self conditioning")
-                fixed_mask = sample_feats['fixed_mask'] * sample_feats['res_mask']
-                diffuse_mask = (1 - sample_feats['fixed_mask']) * sample_feats['res_mask']
-                rigids_t = self.diffuser.reverse(
-                    rigid_t=ru.Rigid.from_tensor_7(sample_feats['rigids_t']),
-                    rot_score=du.move_to_np(rot_score),
-                    trans_score=du.move_to_np(trans_score),
-                    diffuse_mask=du.move_to_np(diffuse_mask),
-                    t=t,
-                    dt=dt,
-                    center=center,
-                    noise_scale=noise_scale,
-                )
-            else:
-                model_out = self.model(sample_feats)
-                rigids_t = ru.Rigid.from_tensor_7(model_out['rigids'])
-            sample_feats['rigids_t'] = rigids_t.to_tensor_7().to(device)
-            sample_feats['R_t'] = rigids_t.get_rots().get_rot_mats().to(device).to(torch.float64)
-            sample_feats['trans_t'] = rigids_t.get_trans().to(device).to(torch.float64)
-            if aux_traj:
-                all_rigids.append(du.move_to_np(rigids_t.to_tensor_7()))
+                    if self._model_conf.embed.embed_self_conditioning:
+                        sample_feats['sc_ca_t'] = rigid_pred[..., 4:]
+                    fixed_mask = sample_feats['fixed_mask'] * sample_feats['res_mask']
+                    diffuse_mask = (1 - sample_feats['fixed_mask']) * sample_feats['res_mask']
+                    rigids_t = self.diffuser.reverse(
+                        rigid_t=ru.Rigid.from_tensor_7(sample_feats['rigids_t']),
+                        rot_score=rot_score,
+                        trans_score=trans_score,
+                        diffuse_mask=diffuse_mask,
+                        t=t,
+                        dt=dt,
+                        center=center,
+                        noise_scale=noise_scale,
+                    )
+                else:
+                    model_out = self.model(sample_feats)
+                    rigids_t = ru.Rigid.from_tensor_7(model_out['rigids'])
+                sample_feats['rigids_t'] = rigids_t.to_tensor_7().to(device)
+                sample_feats['R_t'] = rigids_t.get_rots().get_rot_mats().to(device).to(torch.float64)
+                sample_feats['trans_t'] = rigids_t.get_trans().to(device).to(torch.float64)
+                if aux_traj:
+                    all_rigids.append(du.move_to_np(rigids_t.to_tensor_7()))
 
-            # Calculate x0 prediction derived from score predictions.
-            gt_trans_0 = sample_feats['rigids_t'][..., 4:]
-            pred_trans_0 = rigid_pred[..., 4:]
-            trans_pred_0 = diffuse_mask[..., None] * pred_trans_0 + fixed_mask[..., None] * gt_trans_0
-            psi_pred = model_out['psi']
-            if aux_traj:
-                atom37_0 = all_atom.compute_backbone(
-                    ru.Rigid.from_tensor_7(rigid_pred),
-                    psi_pred
-                )[0]
-                all_bb_0_pred.append(du.move_to_np(atom37_0))
-                all_trans_0_pred.append(du.move_to_np(trans_pred_0))
-            atom37_t = all_atom.compute_backbone(
-                rigids_t, psi_pred)[0]
-            all_bb_prots.append(du.move_to_np(atom37_t))
-
-            if 'rigids_motif' in sample_feats and aux_traj:
-                rigid_pred_uncond = model_out['rigids_uncond']
-                pred_trans_0 = rigid_pred_uncond[..., 4:]
+                # Calculate x0 prediction derived from score predictions.
+                gt_trans_0 = sample_feats['rigids_t'][..., 4:]
+                pred_trans_0 = rigid_pred[..., 4:]
                 trans_pred_0 = diffuse_mask[..., None] * pred_trans_0 + fixed_mask[..., None] * gt_trans_0
-                psi_pred = model_out['psi']
+                psi_pred = model_out['psi_pred']
                 if aux_traj:
                     atom37_0 = all_atom.compute_backbone(
-                        ru.Rigid.from_tensor_7(rigid_pred_uncond),
+                        ru.Rigid.from_tensor_7(rigid_pred),
                         psi_pred
                     )[0]
-                    all_bb_0_pred_uncond.append(du.move_to_np(atom37_0))
-                    all_trans_0_pred_uncond.append(du.move_to_np(trans_pred_0))
+                    all_bb_0_pred.append(du.move_to_np(atom37_0))
+                    all_trans_0_pred.append(du.move_to_np(trans_pred_0))
                 atom37_t = all_atom.compute_backbone(
                     rigids_t, psi_pred)[0]
-                all_bb_prots_uncond.append(du.move_to_np(atom37_t))
+                all_bb_prots.append(du.move_to_np(atom37_t))
+
+                if 'rigids_motif' in sample_feats and aux_traj:
+                    rigid_pred_uncond = model_out['rigids_uncond']
+                    pred_trans_0 = rigid_pred_uncond[..., 4:]
+                    trans_pred_0 = diffuse_mask[..., None] * pred_trans_0 + fixed_mask[..., None] * gt_trans_0
+                    psi_pred = model_out['psi']
+                    if aux_traj:
+                        atom37_0 = all_atom.compute_backbone(
+                            ru.Rigid.from_tensor_7(rigid_pred_uncond),
+                            psi_pred
+                        )[0]
+                        all_bb_0_pred_uncond.append(du.move_to_np(atom37_0))
+                        all_trans_0_pred_uncond.append(du.move_to_np(trans_pred_0))
+                    atom37_t = all_atom.compute_backbone(
+                        rigids_t, psi_pred)[0]
+                    all_bb_prots_uncond.append(du.move_to_np(atom37_t))
 
 
 
