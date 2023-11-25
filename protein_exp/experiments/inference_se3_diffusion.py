@@ -26,11 +26,9 @@ from data import utils as du
 from data import residue_constants
 from typing import Dict
 from experiments import train_se3_diffusion
-from experiments import utils as eu
 from omegaconf import DictConfig, OmegaConf
 from openfold.data import data_transforms
 from openfold.utils.rigid_utils import Rigid
-from motif_scaffolding import twisting
 import esm
 
 
@@ -55,13 +53,12 @@ def process_chain(design_pdb_feats):
 
 
 def create_pad_feats(pad_amt):
-    pad_feats = {
+    return {        
         'res_mask': torch.ones(pad_amt),
         'fixed_mask': torch.zeros(pad_amt),
         'rigids_impute': torch.zeros((pad_amt, 4, 4)),
         'torsion_impute': torch.zeros((pad_amt, 7, 2)),
     }
-    return pad_feats
 
 
 class Sampler:
@@ -194,7 +191,7 @@ class Sampler:
             lambda x: x[None].to(self.device), init_feats)
         return init_feats
 
-    def run_sampling(self, rigids_motif=None):
+    def run_sampling(self):
         """Sets up inference run.
 
         All outputs are written to
@@ -206,64 +203,30 @@ class Sampler:
             self._sample_conf.max_length+1,
             self._sample_conf.length_step
         )
-        motif_extra_len = 0
-        #for motif_extra_len in [0, 20, 40, 60]:
-        for motif_extra_len in [0, 20, 40, 60, 80]:
-            motif_start, motif_end = 2, 12 + motif_extra_len
-            print("Motif_extra_len:", motif_extra_len)
-            include_phi_rot = True
-            include_phi_grad_rot = True
-        #for (include_phi_rot, include_phi_grad_rot) in [(True, True), (False, False), (False, True), (True, False)]:
-            sample_length = 95
-            #sample_length = all_sample_lengths[0]
-            if True:
-                rigids_motif = np.load("./top7_rigids0.npy")
-                rigids_motif = torch.from_numpy(rigids_motif)
-                rigids_motif = rigids_motif[motif_start:motif_end]
-                rigids_motif = eu.remove_com_from_tensor_7(rigids_motif)
-
-            if rigids_motif is not None:
-                motif_len = rigids_motif.shape[0]
-                # Seemed to be running with num_rots = 1, but crashing with num_rots=100
-                F = twisting.motif_offsets_and_rots_vec_F(
-                    sample_length, motif_len, num_rots=1, device=self.device, dtype=torch.float32)
-                #prefix=f'motifLen_{motif_len}' + "_"
-                prefix=f'motifLen_{motif_len}' + "_" + f"phi_rot_{include_phi_rot}" + "_" + f"phi_grad_rot_{include_phi_grad_rot}" + "_"
-            else:
-                F = None
-                prefix=""
-
+        for sample_length in all_sample_lengths:
             length_dir = os.path.join(
-            self._output_dir, f'length_{sample_length}')
+                self._output_dir, f'length_{sample_length}')
             os.makedirs(length_dir, exist_ok=True)
             self._log.info(f'Sampling length {sample_length}: {length_dir}')
             for sample_i in range(self._sample_conf.samples_per_length):
-                sample_dir = os.path.join(length_dir, prefix + f'sample_{sample_i}')
+                sample_dir = os.path.join(length_dir, f'sample_{sample_i}')
                 if os.path.isdir(sample_dir):
                     continue
                 os.makedirs(sample_dir, exist_ok=True)
-                sample_output = self.sample(
-                    sample_length, rigids_motif=rigids_motif, F=F,
-                    include_phi_grad_rot=include_phi_grad_rot, include_phi_rot=include_phi_rot)
-
-                if 'rigid_0_traj_uncond' in sample_output:
-                    x0_traj_uncond = sample_output['rigid_0_traj_uncond']
-                else:
-                    x0_traj_uncond = None
+                sample_output = self.sample(sample_length)
                 traj_paths = self.save_traj(
                     sample_output['prot_traj'],
                     sample_output['rigid_0_traj'],
                     np.ones(sample_length),
-                    output_dir=sample_dir,
-                    x0_traj_uncond=x0_traj_uncond,
+                    output_dir=sample_dir
                 )
 
-                # Run ProteinMPNN
+                # Run ProteinMPNN and folding
                 pdb_path = traj_paths['sample_path']
                 sc_output_dir = os.path.join(sample_dir, 'self_consistency')
                 os.makedirs(sc_output_dir, exist_ok=True)
                 shutil.copy(pdb_path, os.path.join(
-                    sc_output_dir, os.path.basename(pdb_path)))
+                    sc_output_dir, os.path.basename(pdb_path)))  # TODO: check if we can avoid copy
                 _ = self.run_self_consistency(
                     sc_output_dir,
                     pdb_path,
@@ -277,8 +240,6 @@ class Sampler:
             x0_traj: np.ndarray,
             diffuse_mask: np.ndarray,
             output_dir: str,
-            x0_traj_uncond: np.ndarray = None,
-            prefix: str = '',
         ):
         """Writes final sample and reverse diffusion trajectory.
 
@@ -305,8 +266,8 @@ class Sampler:
         # Write sample.
         diffuse_mask = diffuse_mask.astype(bool)
         sample_path = os.path.join(output_dir, 'sample')
-        prot_traj_path = os.path.join(output_dir,prefix+ 'bb_traj')
-        x0_traj_path = os.path.join(output_dir, prefix+'x0_traj')
+        prot_traj_path = os.path.join(output_dir, 'bb_traj')
+        x0_traj_path = os.path.join(output_dir, 'x0_traj')
 
         # Use b-factors to specify which residues are diffused.
         b_factors = np.tile((diffuse_mask * 100)[:, None], (1, 37))
@@ -326,14 +287,6 @@ class Sampler:
             x0_traj_path,
             b_factors=b_factors
         )
-
-        if x0_traj_uncond is not None:
-            x0_traj_uncond_path = os.path.join(output_dir, prefix + 'x0_traj_uncond')
-            x0_traj_uncond_path = au.write_prot_to_pdb(
-                x0_traj_uncond,
-                x0_traj_uncond_path,
-                b_factors=b_factors
-            )
         return {
             'sample_path': sample_path,
             'traj_path': prot_traj_path,
@@ -346,7 +299,7 @@ class Sampler:
             reference_pdb_path: str,
             motif_mask: Optional[np.ndarray]=None):
         """Run self-consistency on design proteins against reference protein.
-
+        
         Args:
             decoy_pdb_dir: directory where designed protein files are stored.
             reference_pdb_path: path to reference protein file
@@ -385,15 +338,15 @@ class Sampler:
             '--batch_size',
             '1',
         ]
-        if self._infer_conf.gpu_id is not None:
+        if "cuda" in self.device:
             pmpnn_args.append('--device')
-            pmpnn_args.append(str(self._infer_conf.gpu_id))
+            pmpnn_args.append(self.device.split(":")[1])
         while ret < 0:
+            print("running ProteinMPNN", pmpnn_args)
             try:
                 process = subprocess.Popen(
                     pmpnn_args,
                     stdout=subprocess.DEVNULL,
-                    #stdout=subprocess.,
                     stderr=subprocess.STDOUT
                 )
                 ret = process.wait()
@@ -403,11 +356,13 @@ class Sampler:
                 torch.cuda.empty_cache()
                 if num_tries > 4:
                     raise e
+        #print("decopy_pdb_dir", decoy_pdb_dir)   # sample_0/self_consistency/
+        #print("reference_pdb_path", reference_pdb_path)  # sample_0/sample_1.pdb
         mpnn_fasta_path = os.path.join(
             decoy_pdb_dir,
             'seqs',
             os.path.basename(reference_pdb_path).replace('.pdb', '.fa')
-        )
+        )  # sample_0/self_consistency/seqs/sample_1.fa
 
         # Run ESMFold on each ProteinMPNN sequence and calculate metrics.
         mpnn_results = {
@@ -464,9 +419,7 @@ class Sampler:
             f.write(output)
         return output
 
-    def sample(self, sample_length: int, rigids_motif: torch.Tensor = None, F: torch.Tensor = None,
-                    include_phi_grad_rot: bool = True, include_phi_rot: bool = True
-    ):
+    def sample(self, sample_length: int):
         """Sample based on length.
 
         Args:
@@ -483,7 +436,7 @@ class Sampler:
         ref_sample = self.diffuser.sample_ref(
             n_samples=sample_length,
             as_tensor_7=True,
-        )
+        )  # keys: ['rigit_t']
         res_idx = torch.arange(1, sample_length+1)
         init_feats = {
             'res_mask': res_mask,
@@ -493,20 +446,19 @@ class Sampler:
             'sc_ca_t': np.zeros((sample_length, 3)),
             **ref_sample,
         }
-
-        # add rotation and translation features
-        rigid_t = Rigid.from_tensor_7(init_feats['rigids_t'])
-        init_feats['R_t'] = rigid_t.get_rots().get_rot_mats().to(torch.float64)
-        init_feats['trans_t'] = rigid_t.get_trans().to(torch.float64)
-
+        
+        # TODO: add batch_size later
+        #rigid_t = Rigid.from_tensor_7(ref_sample['rigids_t'].reshape(batch_size, sample_length, 7))
+        rigid_t = Rigid.from_tensor_7(ref_sample['rigids_t'])
+        init_feats['R_t'] = rigid_t.get_rots().get_rot_mats().to(torch.float64) # (sample_len, 3,3)
+        init_feats['trans_t'] = rigid_t.get_trans().to(torch.float64) # (sample_len, 3)
+        init_feats['rigids_t'] = rigid_t.to_tensor_7().to(torch.float64) # (sample_len, 7)
 
         # Add batch dimension and move to GPU.
         init_feats = tree.map_structure(
             lambda x: x if torch.is_tensor(x) else torch.tensor(x), init_feats)
-
-        # Add motif into init_feats (no batch dimension)
-        if rigids_motif is not None: init_feats['rigids_motif'] = rigids_motif
-
+        
+        # TODO: check batch_dimension
         init_feats = tree.map_structure(
             lambda x: x[None].to(self.device), init_feats)
 
@@ -517,13 +469,10 @@ class Sampler:
             min_t=self._diff_conf.min_t,
             aux_traj=True,
             noise_scale=self._diff_conf.noise_scale,
-            F=F,
-            include_phi_grad_rot=include_phi_grad_rot,
-            include_phi_rot=include_phi_rot,
         )
         return tree.map_structure(lambda x: x[:, 0], sample_out)
 
-@hydra.main(version_base=None, config_path="../config", config_name="inference")
+@hydra.main(version_base=None, config_path="../config", config_name="unconditional_inference")
 def run(conf: DictConfig) -> None:
 
     # Read model checkpoint.
@@ -536,3 +485,7 @@ def run(conf: DictConfig) -> None:
 
 if __name__ == '__main__':
     run()
+
+
+
+# TODO: check if exists, skip and directly generate
