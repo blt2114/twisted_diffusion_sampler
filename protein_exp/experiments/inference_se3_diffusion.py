@@ -116,15 +116,16 @@ class Sampler:
         self._log.info(f'Saving results to {self._output_dir}')
         self._pmpnn_dir = self._infer_conf.pmpnn_dir
 
-        config_path = os.path.join(self._output_dir, 'inference_conf.yaml')
-        with open(config_path, 'w') as f:
-            OmegaConf.save(config=self._conf, f=f)
-        self._log.info(f'Saving inference config to {config_path}')
 
         # Load models and experiment
         self._load_ckpt(conf_overrides)
         self._folding_model = esm.pretrained.esmfold_v1().eval()
         self._folding_model = self._folding_model.to(self.device)
+
+        config_path = os.path.join(self._output_dir, 'inference_conf.yaml')        
+        with open(config_path, 'w') as f:
+            OmegaConf.save(config=self._conf, f=f)
+        self._log.info(f'Saving inference config to {config_path}')
 
     def _load_ckpt(self, conf_overrides):
         """Loads in model checkpoint."""
