@@ -115,6 +115,7 @@ class R3Diffuser:
             center: bool=True,
             noise_scale: float=1.0,
             return_log_p_sample=False,
+            use_sde: bool=True,
         ):
         """Simulates the reverse SDE for 1 step
 
@@ -134,9 +135,12 @@ class R3Diffuser:
         g_t = self.diffusion_coef(t)
         f_t = self.drift_coef(x_t, t)
         z = noise_scale * torch.randn(size=score_t.shape, device=x_t.device)
-        perturb_mean = (f_t - g_t**2 * score_t) * dt
-        perturb = perturb_mean + g_t * np.sqrt(dt) * z
-
+        if use_sde:
+            perturb_mean = (f_t - g_t**2 * score_t) * dt
+            perturb = perturb_mean + g_t * np.sqrt(dt) * z
+        else:
+            perturb = (f_t - 0.5*g_t**2 * score_t) * dt
+        
         if mask is None:
             mask = torch.ones(x_t.shape[:-1], dtype=x_t.dtype, device=x_t.device)
         perturb *= mask[..., None]
@@ -147,11 +151,13 @@ class R3Diffuser:
         x_t_1_unscaled = self._unscale(x_t_1)
         if not return_log_p_sample:
             return x_t_1_unscaled
-
-        var = (g_t * np.sqrt(dt))**2
-        log_p_sample = so3_utils.normal_log_density(
-            x_t_1, x_t - perturb_mean, var).sum(dim=-1)
-
+        
+        if use_sde:
+            var = (g_t * np.sqrt(dt))**2
+            log_p_sample = so3_utils.normal_log_density(
+                x_t_1, x_t - perturb_mean, var).sum(dim=-1)
+        else:
+            log_p_sample = torch.zeros_like(x_t[...,0])
         return x_t_1_unscaled, log_p_sample
 
     def reverse_log_prob(

@@ -114,26 +114,30 @@ class SO3Diffuser:
             mask: torch.tensor=None,
             noise_scale: float=1.0,
             return_log_p_sample=False,
+            use_sde:bool=True,
             ):
         """Simulates the reverse SDE for 1 step using the Geodesic random walk.
 
         Args:
-            rot_t: [..., 3] current rotations at time t.
-            score_t: [..., 3] rotation score at time t.
+            rot_t: [..., 3, 3] current rotations at time t.
+            score_t: [..., 3, 3] rotation score at time t.
             t: continuous time in [0, 1].
             dt: continuous step size in [0, 1].
             add_noise: set False to set diffusion coefficent to 0.
             mask: True indicates which residues to diffuse.
 
         Returns:
-            [..., 3] rotation vector at next step.
+            [..., 3, 3] rotation matrix at next step.
         """
         if not np.isscalar(t): raise ValueError(f'{t} must be a scalar.')
 
         # Convert to pytorch tensors
         g_t = self.diffusion_coef(t)
-        perturb_mean = self.exp_rate * ( g_t ** 2 ) * dt * score_t
-        perturb = perturb_mean + noise_scale * g_t * np.sqrt(dt) * so3_utils.tangent_gaussian(R_t)
+        if use_sde:
+            perturb_mean = self.exp_rate * ( g_t ** 2 ) * dt * score_t
+            perturb = perturb_mean + noise_scale * g_t * np.sqrt(dt) * so3_utils.tangent_gaussian(R_t)
+        else:
+            perturb = 0.5 * self.exp_rate * ( g_t ** 2 ) * dt * score_t
         if mask is not None: perturb *= mask[..., None, None]
         R_t_1 = so3_utils.expmap(R_t, perturb)
         if not return_log_p_sample:

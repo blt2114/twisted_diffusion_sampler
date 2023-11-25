@@ -162,6 +162,7 @@ class SE3Diffuser:
             center: bool=True,
             noise_scale: float=1.0,
             return_log_p_sample=False,
+            use_sde:bool=True,
         ):
         """Reverse sampling function from (t) to (t-1).
 
@@ -188,6 +189,7 @@ class SE3Diffuser:
             dt=dt,
             noise_scale=noise_scale,
             return_log_p_sample=return_log_p_sample,
+            use_sde=use_sde,
             )
         trans_t_1 = self._r3_diffuser.reverse(
             x_t=trans_t,
@@ -197,6 +199,7 @@ class SE3Diffuser:
             center=center,
             noise_scale=noise_scale,
             return_log_p_sample=return_log_p_sample,
+            use_sde=use_sde,
             )
 
         if return_log_p_sample:
