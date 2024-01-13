@@ -13,7 +13,7 @@ inference:
   output_dir: ./inference_outputs/
 
   # Path to model weights.
-  weights_path: ./weights/best_weights.pth #./weights/paper_weights.pth
+  weights_path: ./weights/paper_weights.pth
 
   # Whether to save trajectory files
   aux_traj: False
@@ -75,7 +75,7 @@ inference:
     use_twisting: True
 
     # log twisting scaling factor
-    twist_scale: 1.0
+    twist_scale: 2.0
 
     # Specify motif scaffolding test case
     test_name: null
@@ -90,4 +90,4 @@ inference:
     inpaint_cases_csv: ./motif_scaffolding/benchmark.csv
 
     # Keep motif sequence outside redesign region
-    keep_motif_seq: False
+    keep_motif_seq: True
