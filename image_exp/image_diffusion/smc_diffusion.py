@@ -189,7 +189,7 @@ class GaussianDiffusion:
         """
         assert noise is None 
         mean = self.sqrt_alphas_cumprod[t] * x_start 
-        scale = self.sqrt_one_minus_alphas_cumprod[t] * x_start 
+        scale = self.sqrt_one_minus_alphas_cumprod[t] * th.ones_like(x_start) 
         # return samples, logprob (if required)
         return _gaussian_sample(mean, scale=scale, sample_shape=th.Size([num_particles]), return_logprob=return_logprob)
     
