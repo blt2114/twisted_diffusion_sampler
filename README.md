@@ -2,7 +2,7 @@
 
 <img src="https://github.com/blt2114/twisted_diffusion_sampler/blob/main/media/TDS_protein.gif" alt= “” width="50%" height="50%">
 
-The above shows the output of the twisted diffusion sampler (TDS) applied to the motif-scaffolding problem, a central problem in computational protein design. TDS uses a diffusion model of protein structures to evolves a set of a weighted set of scaffolds (red-white-blue) to stabilize a helical motif highlighted in black.  Over the course of the denoising process, promising scaffolds are up-weighted and replicated while less promising scaffolds are down-weighted, fade away, and are are replaced.  Ultimately TDS produces a weighted set of compatible scaffolds.
+The above shows the output of the twisted diffusion sampler (TDS) applied to the motif-scaffolding problem, a central problem in computational protein design. TDS uses a diffusion model of protein structures to evolves a set of a weighted set of scaffolds (blue-pink-yello) to stabilize a helical motif highlighted in black.  Over the course of the denoising process, promising scaffolds are up-weighted and replicated while less promising scaffolds are down-weighted, fade away, and are replaced.  Ultimately TDS produces a weighted set of compatible scaffolds.
 
 TDS enables one use existing classification models and diffusion generative models for a range of conditional generation problems without any further neural network training or fine-tuning.  The algorithm applies when one has (1) a diffusion model capable of unconditional generation and (2) a way to specify the conditioning criteria as either a likelihood given (noise-free) data or more general constraints, including inpainting. 
 
@@ -28,9 +28,9 @@ Please feel welcome to make pull requests for new contributions or bug fixes, or
 If you use our work then please cite
 ```
 @article{wu2023practical,
-  title={Practical and Asymptotically Exact Conditional Sampling in Diffusion Models},
-  author={Wu, Luhuan and Trippe, Brian L and Naesseth, Christian A. and Blei, David M and Cunningham, John P},
-  journal={arXiv preprint arXiv:2306.17775},
+  title={Practical and asymptotically exact conditional sampling in diffusion models},
+  author={Wu, Luhuan and Trippe, Brian L and Naesseth, Christian and Blei, David and Cunningham, John P},
+  journal={Advances in Neural Information Processing Systems},
   year={2023}
 }
 
